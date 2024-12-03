@@ -7,7 +7,6 @@ require('dotenv').config();
 
 const authRouter = express.Router();
 
-const JWT_SECRET = process.env.JWT_SECRET;
 
 authRouter.post('/signup', async (req, res) => {
   try {
@@ -41,22 +40,26 @@ authRouter.post('/login', async (req, res)=>{
     if (!email || !password) {
         return res.status(400).json({ error: 'Email and password are required.' });
     }
-    console.log("1");
     
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials.' });
     }
-    console.log("2");
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(401).json({ error: 'Invalid credentials.' });
     }
-    console.log("3");
-    const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
-    res.status(200).json({ message: 'Login successful.', token });
+    res.cookie('authToken', token, {
+      httpOnly: true, // Prevents client-side JavaScript from accessing the cookie
+      secure: process.env.NODE_ENV === 'production', // Ensures cookies are sent over HTTPS in production
+      maxAge: 3600000, // 1 hour in milliseconds
+      sameSite: 'lax', // Ensures cookies are only sent on same-site requests
+    });
+
+    res.status(200).json({ message: 'Login successful.' });
   } catch (error) {
     res.status(500).json({ error: 'An error occurred during login.' });
   }
